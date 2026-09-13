@@ -5,12 +5,10 @@ __pycache__/
 .venv/
 .env
 .DS_Store
+logfile.log
 
-# Data and artifacts
-/data/raw/*.txt
-/data/processed/*.csv
-/artifacts/*.joblib
-/artifacts/*.json
+# DVC tracked directory
+/data
 
 # DVC local cache
 .dvc/cache/

@@ -1,0 +1,11 @@
+model: RAND_FOREST
+model_params:
+  n_estimators: '300'
+  criterion: gini
+  max_depth: '8'
+  random_state: '42'
+  path: /workspace/experiments/rand_forest.sav
+tests: func
+score: 1.0
+x_test_path: data/Test_Seeds_X.csv
+y_test_path: data/Test_Seeds_y.csv

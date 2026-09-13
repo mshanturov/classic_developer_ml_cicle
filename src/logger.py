@@ -27,7 +27,9 @@ class Logger:
     def get_logger(self, logger_name: str) -> logging.Logger:
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.INFO)
-        logger.handlers = []
+        for handler in logger.handlers[:]:
+            handler.close()
+            logger.removeHandler(handler)
         if self.show:
             logger.addHandler(self.get_console_handler())
         logger.addHandler(self.get_file_handler())

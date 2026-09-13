@@ -34,10 +34,10 @@ pipeline {
 
         stage('Unit tests and coverage') {
             steps {
-                sh 'coverage run src/unit_tests/test_preprocess.py'
-                sh 'coverage run -a src/unit_tests/test_training.py'
-                sh 'coverage run -a src/unit_tests/test_api.py'
-                sh 'coverage report -m'
+                sh 'python3 -m coverage run src/unit_tests/test_preprocess.py'
+                sh 'python3 -m coverage run -a src/unit_tests/test_training.py'
+                sh 'python3 -m coverage run -a src/unit_tests/test_api.py'
+                sh 'python3 -m coverage report -m'
             }
         }
 

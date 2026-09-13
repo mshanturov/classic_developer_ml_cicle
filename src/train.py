@@ -39,7 +39,7 @@ class MultiModel:
         self.x_train = self.scaler.fit_transform(self.x_train)
         self.x_test = self.scaler.transform(self.x_test)
 
-        self.experiments_path = Path(os.getcwd()) / "experiments"
+        self.experiments_path = Path("experiments")
         self.experiments_path.mkdir(parents=True, exist_ok=True)
 
         self.model_paths = {

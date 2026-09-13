@@ -10,6 +10,7 @@ INCLUDE_PATHS = [
     "src",
     "scripts",
     "tests",
+    "experiments",
     "notebooks",
     "config.ini",
     "requirements.txt",

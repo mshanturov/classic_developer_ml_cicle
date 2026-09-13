@@ -25,10 +25,10 @@ pip install -r requirements.txt
 python3 src/preprocess.py
 python3 src/train.py --model ALL --use-config
 python3 src/predict.py -m RAND_FOREST -t smoke
-coverage run src/unit_tests/test_preprocess.py
-coverage run -a src/unit_tests/test_training.py
-coverage run -a src/unit_tests/test_api.py
-coverage report -m
+python3 -m coverage run src/unit_tests/test_preprocess.py
+python3 -m coverage run -a src/unit_tests/test_training.py
+python3 -m coverage run -a src/unit_tests/test_api.py
+python3 -m coverage report -m
 ```
 
 ## API
