@@ -1,33 +1,43 @@
 {
   "base_url": "http://web:8000",
-  "cases": [
-    {
-      "name": "valid_api_call",
-      "model": "RAND_FOREST",
-      "payload": {
-        "area": 15.26,
-        "perimeter": 14.84,
-        "compactness": 0.871,
-        "kernel_length": 5.763,
-        "kernel_width": 3.312,
-        "asymmetry_coefficient": 2.221,
-        "groove_length": 5.22
-      },
-      "expected_status": 200
+  "direct_case": {
+    "model": "RAND_FOREST",
+    "payload": {
+      "area": 15.26,
+      "perimeter": 14.84,
+      "compactness": 0.871,
+      "kernel_length": 5.763,
+      "kernel_width": 3.312,
+      "asymmetry_coefficient": 2.221,
+      "groove_length": 5.22
     },
-    {
-      "name": "invalid_api_call",
-      "model": "RAND_FOREST",
-      "payload": {
-        "area": -1,
-        "perimeter": 14.84,
-        "compactness": 0.871,
-        "kernel_length": 5.763,
-        "kernel_width": 3.312,
-        "asymmetry_coefficient": 2.221,
-        "groove_length": 5.22
-      },
-      "expected_status": 422
-    }
-  ]
+    "expected_status": 200
+  },
+  "redis_case": {
+    "request_key": "seed-request-1",
+    "model": "RAND_FOREST",
+    "payload": {
+      "area": 18.72,
+      "perimeter": 16.19,
+      "compactness": 0.8977,
+      "kernel_length": 6.006,
+      "kernel_width": 3.857,
+      "asymmetry_coefficient": 5.324,
+      "groove_length": 5.879
+    },
+    "expected_status": 200
+  },
+  "invalid_case": {
+    "model": "RAND_FOREST",
+    "payload": {
+      "area": -1,
+      "perimeter": 14.84,
+      "compactness": 0.871,
+      "kernel_length": 5.763,
+      "kernel_width": 3.312,
+      "asymmetry_coefficient": 2.221,
+      "groove_length": 5.22
+    },
+    "expected_status": 422
+  }
 }
