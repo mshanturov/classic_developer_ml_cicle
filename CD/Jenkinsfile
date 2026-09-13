@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        REDIS_PASSWORD = credentials('redis-password')
+        REDIS_KEY_PREFIX = 'lab2-cd'
+    }
+
     options {
         timestamps()
     }
@@ -14,7 +19,13 @@ pipeline {
 
         stage('Build and run service') {
             steps {
-                sh 'docker compose up -d --build web'
+                sh 'docker compose up -d --build redis web'
+            }
+        }
+
+        stage('Seed Redis with inference requests') {
+            steps {
+                sh 'docker compose exec -T web python3 src/seed_redis_data.py --input data/Test_Seeds_X.csv --limit 3 --prefix $REDIS_KEY_PREFIX'
             }
         }
 

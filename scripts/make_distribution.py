@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
-DIST_PATH = Path("dist/lab1_distribution.zip")
 INCLUDE_PATHS = [
     "CI",
     "CD",
@@ -19,9 +19,17 @@ INCLUDE_PATHS = [
     "data.dvc",
     "dev_sec_ops.yml",
     "scenario.json",
+    ".env.example",
     "README.md",
     "REPORT_LAB1.md",
+    "REPORT_LAB2.md",
 ]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build distribution zip for lab artifacts")
+    parser.add_argument("--lab", default="2", help="Lab number to include in resulting zip file name")
+    return parser.parse_args()
 
 
 def iter_files(base: Path):
@@ -39,9 +47,11 @@ def iter_files(base: Path):
 
 
 def main() -> None:
-    DIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    args = parse_args()
+    dist_path = Path(f"dist/lab{args.lab}_distribution.zip")
+    dist_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with ZipFile(DIST_PATH, "w", compression=ZIP_DEFLATED) as archive:
+    with ZipFile(dist_path, "w", compression=ZIP_DEFLATED) as archive:
         for relative in INCLUDE_PATHS:
             root = Path(relative)
             if not root.exists():
@@ -49,7 +59,7 @@ def main() -> None:
             for file_path in iter_files(root):
                 archive.write(file_path, arcname=file_path.as_posix())
 
-    print(f"Distribution created: {DIST_PATH}")
+    print(f"Distribution created: {dist_path}")
 
 
 if __name__ == "__main__":

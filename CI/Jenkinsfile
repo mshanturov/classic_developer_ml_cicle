@@ -4,6 +4,8 @@ pipeline {
     environment {
         IMAGE_NAME = "mshanturov/classic_developer_ml_cicle"
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
+        REDIS_PASSWORD = credentials('redis-password')
+        REDIS_KEY_PREFIX = 'lab2-ci'
     }
 
     options {
@@ -36,8 +38,15 @@ pipeline {
             steps {
                 sh 'python3 -m coverage run src/unit_tests/test_preprocess.py'
                 sh 'python3 -m coverage run -a src/unit_tests/test_training.py'
+                sh 'python3 -m coverage run -a src/unit_tests/test_prediction_store.py'
                 sh 'python3 -m coverage run -a src/unit_tests/test_api.py'
                 sh 'python3 -m coverage report -m'
+            }
+        }
+
+        stage('Container functional tests with Redis') {
+            steps {
+                sh 'docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests'
             }
         }
 
@@ -53,6 +62,7 @@ pipeline {
 
     post {
         always {
+            sh 'docker compose down -v || true'
             sh 'docker logout || true'
         }
     }

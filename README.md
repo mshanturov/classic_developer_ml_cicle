@@ -1,61 +1,95 @@
 # classic_developer_ml_cicle
 
-Классический MLE-проект в стиле `mle-template`, адаптированный под ЛР №1
-по курсу «Инфраструктура больших данных» (ИТМО, весна 2026).
+Проект лабораторных работ по дисциплине «Инфраструктура больших данных» (ИТМО, весна 2026).
 
-## Структура (как в шаблоне)
+- **ЛР1**: классический MLE-пайплайн (подготовка данных, обучение, API, тесты, DVC, Docker, CI/CD).
+- **ЛР2**: взаимодействие модели с источником данных **Redis** (входные запросы + сохранение результатов предсказаний).
 
-- `src/preprocess.py` — подготовка и split данных.
-- `src/train.py` — обучение набора классических моделей.
-- `src/predict.py` — smoke/func тестирование обученных моделей.
-- `src/logger.py` — логирование.
-- `src/api_service.py` — FastAPI API для инференса.
+## Структура проекта
+
+- `src/preprocess.py` — подготовка данных и train/test split.
+- `src/train.py` — обучение классических моделей.
+- `src/predict.py` — smoke/func проверки моделей.
+- `src/api_service.py` — FastAPI сервис модели.
+- `src/prediction_store.py` — слой доступа к Redis (или in-memory backend для тестов).
+- `src/seed_redis_data.py` — наполнение Redis тестовыми запросами для инференса.
+- `src/functional_api_test.py` — сценарий функционального теста контейнеров.
 - `src/unit_tests` — unit/API тесты.
-- `tests/test_*.json` — функциональные JSON-сценарии.
-- `CI/Jenkinsfile` — CI pipeline.
-- `CD/Jenkinsfile` — CD pipeline.
-- `Dockerfile`, `docker-compose.yml`, `config.ini`, `requirements.txt`, `dev_sec_ops.yml`, `scenario.json`.
+- `CI/Jenkinsfile`, `CD/Jenkinsfile` — CI/CD pipeline.
 
-## Запуск локально
+## Требования
+
+- Python 3.11+
+- Docker + Docker Compose
+
+## Подготовка окружения
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+## Базовый запуск ML-пайплайна
+
+```bash
 python3 src/preprocess.py
 python3 src/train.py --model ALL --use-config
 python3 src/predict.py -m RAND_FOREST -t smoke
-python3 -m coverage run src/unit_tests/test_preprocess.py
-python3 -m coverage run -a src/unit_tests/test_training.py
-python3 -m coverage run -a src/unit_tests/test_api.py
-python3 -m coverage report -m
+python3 src/predict.py -m RAND_FOREST -t func
 ```
 
-## API
+## Запуск API локально (ЛР2)
+
+Для локального запуска без Redis можно включить in-memory backend:
 
 ```bash
-python3 -m uvicorn src.api_service:app --host 0.0.0.0 --port 8000
+PREDICTION_STORE_BACKEND=inmemory python3 -m uvicorn src.api_service:app --host 0.0.0.0 --port 8000
 ```
 
-- `GET /health`
-- `POST /predict?model=RAND_FOREST`
+Для запуска с Redis передай `REDIS_URL` и `REDIS_KEY_PREFIX`.
 
-## Docker
+## Docker Compose (обязательно для ЛР2)
+
+1. Создать `.env` из шаблона:
 
 ```bash
-docker compose up --build web
+cp .env.example .env
 ```
 
-Dev-режим:
+2. Запустить сервис модели + Redis:
 
 ```bash
-docker compose --profile dev up --build web-dev
+docker compose up --build redis web
 ```
 
-Функциональное тестирование контейнера (CD-этап):
+3. Прогнать функциональный тест контейнеров:
 
 ```bash
 docker compose --profile cd run --rm functional-tests
+```
+
+4. Остановить:
+
+```bash
+docker compose down -v
+```
+
+## Примеры API (с Redis)
+
+- `POST /inference-requests/{request_key}` — сохранить входные признаки в Redis.
+- `POST /predict` — выполнить предсказание и записать результат в Redis.
+- `POST /predict/from-redis` — взять вход из Redis и выполнить предсказание.
+- `GET /predictions/{request_id}` — получить сохранённый результат по request_id.
+
+## Тесты
+
+```bash
+python3 -m coverage run src/unit_tests/test_preprocess.py
+python3 -m coverage run -a src/unit_tests/test_training.py
+python3 -m coverage run -a src/unit_tests/test_prediction_store.py
+python3 -m coverage run -a src/unit_tests/test_api.py
+python3 -m coverage report -m
 ```
 
 ## DVC
@@ -64,4 +98,12 @@ docker compose --profile cd run --rm functional-tests
 python3 -m dvc add data
 ```
 
-После этого в git коммитится `data.dvc`, сами данные остаются в DVC-кеше.
+## Дистрибутивы
+
+```bash
+python3 scripts/make_distribution.py --lab 1
+python3 scripts/make_distribution.py --lab 2
+```
+
+- `dist/lab1_distribution.zip`
+- `dist/lab2_distribution.zip`
