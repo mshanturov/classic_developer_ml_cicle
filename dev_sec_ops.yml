@@ -3,11 +3,11 @@ image_signature:
   value: to-be-generated-by-ci
 git:
   latest_5_commits:
+  - 53cdda855ce7133bc3eccf026122bcd70d751de1
+  - cb5ca0643f63e0303c53a205b8fc910b7bd1219f
+  - f0556820dd2b8244417044f92d7dc3c12752d40b
   - a26f1be29ab10ef74be66945121f80368d118a0f
   - d0e5fe4defa57e42b165a7c715eece9c8b9cbd4d
-  - 485f268a47ba169584092c31af0172756daffd67
-  - aa226c1e3478d049aca9dad99d929a0e4a3d9b28
-  - 197831ce53eaf621d1255d4a2424cecb01645cf0
 test_coverage:
   enabled: true
   minimum_percent: 75
