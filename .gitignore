@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.venv/
+.env
+.DS_Store
+
+# Data and artifacts
+/data/raw/*.txt
+/data/processed/*.csv
+/artifacts/*.joblib
+/artifacts/*.json
+
+# DVC local cache
+.dvc/cache/
+
+# Build/distribution
+dist/
+*.zip
+!dist/
+!dist/lab1_distribution.zip
+
+# Jupyter
+.ipynb_checkpoints/

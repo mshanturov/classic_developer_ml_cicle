@@ -1,0 +1,13 @@
+image_signature:
+  algorithm: sha256
+  value: to-be-generated-after-ci
+git:
+  latest_5_commits:
+  - 21b52e864f5eccd55efbb94239350aa50f7b382c
+  - b2c7f4aa63bab90ece813a7bc55168945e1882ad
+  - ab296386cea45e3443a1490036cd3d177b18438a
+  - 10ba7351a15407b8e446597f35b7fe2a1ae1ce47
+  - a160d4df18ab96542914fd3af868ac2779772fcd
+test_coverage:
+  enabled: true
+  minimum_percent: 75
