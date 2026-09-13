@@ -1,99 +1,67 @@
-# ITMO Big Data Infrastructure — Lab 1
+# classic_developer_ml_cicle
 
-Проект для ЛР №1 по дисциплине «Инфраструктура больших данных»:
-классический жизненный цикл разработки ML-модели (Seeds dataset).
+Классический MLE-проект в стиле `mle-template`, адаптированный под ЛР №1
+по курсу «Инфраструктура больших данных» (ИТМО, весна 2026).
 
-## Что реализовано
+## Структура (как в шаблоне)
 
-- Подготовка данных (split train/test) для датасета Wheat Seeds (UCI/Kaggle mirror).
-- Классическая модель классификации (`RandomForestClassifier`).
-- API сервис на FastAPI с endpoint'ами:
-  - `GET /health`
-  - `POST /predict`
-- Unit и functional тесты (`pytest`).
-- DVC pipeline для этапов prepare/train/evaluate.
-- Dockerfile + docker-compose (dev/prod + functional CD profile).
-- CI/CD на GitHub Actions:
-  - **CI**: trigger на `pull_request` в `main`, тесты + сборка и push образа в DockerHub.
-  - **CD**: trigger вручную или по успеху CI, запуск контейнера и функциональные тесты.
+- `src/preprocess.py` — подготовка и split данных.
+- `src/train.py` — обучение набора классических моделей.
+- `src/predict.py` — smoke/func тестирование обученных моделей.
+- `src/logger.py` — логирование.
+- `src/api_service.py` — FastAPI API для инференса.
+- `src/unit_tests` — unit/API тесты.
+- `tests/test_*.json` — функциональные JSON-сценарии.
+- `CI/Jenkinsfile` — CI pipeline.
+- `CD/Jenkinsfile` — CD pipeline.
+- `Dockerfile`, `docker-compose.yml`, `config.ini`, `requirements.txt`, `dev_sec_ops.yml`, `scenario.json`.
 
-## Структура
-
-- `src/ml_pipeline` — подготовка данных, обучение, оценка модели.
-- `src/api` — API слой и сервис инференса.
-- `scripts` — скрипты загрузки данных, подготовки, обучения, оценки, сборки дистрибутива.
-- `tests` — unit/functional тесты.
-- `.github/workflows` — CI/CD пайплайны.
-- `notebooks` — notebook + конвертированный `.py`.
-
-## Быстрый старт
+## Запуск локально
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 scripts/download_data.py
-python3 -m dvc repro
-python3 -m pytest --cov=src --cov-report=term-missing -k "not container_scenario"
+python3 src/preprocess.py
+python3 src/train.py --model ALL --use-config
+python3 src/predict.py -m RAND_FOREST -t smoke
+coverage run src/unit_tests/test_preprocess.py
+coverage run -a src/unit_tests/test_training.py
+coverage run -a src/unit_tests/test_api.py
+coverage report -m
 ```
 
-## Запуск API локально
+## API
 
 ```bash
-uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+python3 -m uvicorn src.api_service:app --host 0.0.0.0 --port 8000
 ```
 
-Пример запроса:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "area": 15.26,
-    "perimeter": 14.84,
-    "compactness": 0.871,
-    "kernel_length": 5.763,
-    "kernel_width": 3.312,
-    "asymmetry_coefficient": 2.221,
-    "groove_length": 5.22
-  }'
-```
+- `GET /health`
+- `POST /predict?model=RAND_FOREST`
 
 ## Docker
 
-### PROD
 ```bash
-docker compose up --build
+docker compose up --build web
 ```
 
-### DEV
+Dev-режим:
+
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose --profile dev up --build web-dev
 ```
 
-### Функциональные тесты в контейнере (CD профиль)
+Функциональное тестирование контейнера (CD-этап):
+
 ```bash
-docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests
+docker compose --profile cd run --rm functional-tests
 ```
 
 ## DVC
 
 ```bash
-python3 -m dvc repro
-python3 -m dvc metrics show
+python3 -m dvc add data
 ```
 
-## Конфиги, требуемые ЛР
-
-- `config.ini`
-- `Dockerfile`
-- `docker-compose.yml`
-- `requirements.txt`
-- `dev_sec_ops.yml`
-- `scenario.json`
-
-## Примечание про GitHub/DockerHub
-
-Для CI push образа нужны секреты репозитория:
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+После этого в git коммитится `data.dvc`, сами данные остаются в DVC-кеше.

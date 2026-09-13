@@ -1,9 +1,10 @@
+version: '3.8'
+
 services:
-  model-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: model-api
+  web:
+    build: .
+    image: mshanturov/classic_developer_ml_cicle:latest
+    container_name: classic-ml-api
     ports:
       - "8011:8000"
     healthcheck:
@@ -13,14 +14,21 @@ services:
       retries: 5
       start_period: 15s
 
+  web-dev:
+    build: .
+    profiles: ["dev"]
+    command: >
+      bash -c "python3 src/preprocess.py && python3 src/train.py --model ALL --use-config &&
+      python3 -m uvicorn src.api_service:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./:/app
+    ports:
+      - "8012:8000"
+
   functional-tests:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     profiles: ["cd"]
     depends_on:
-      model-api:
+      web:
         condition: service_healthy
-    environment:
-      - RUN_CONTAINER_SCENARIO=1
-    command: ["python3", "-m", "pytest", "tests/test_functional_scenario.py", "-q"]
+    command: ["python3", "src/functional_api_test.py"]

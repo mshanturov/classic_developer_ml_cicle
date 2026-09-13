@@ -1,8 +1,9 @@
 {
-  "base_url": "http://model-api:8000",
+  "base_url": "http://web:8000",
   "cases": [
     {
-      "name": "valid_prediction_case",
+      "name": "valid_api_call",
+      "model": "RAND_FOREST",
       "payload": {
         "area": 15.26,
         "perimeter": 14.84,
@@ -15,7 +16,8 @@
       "expected_status": 200
     },
     {
-      "name": "invalid_payload_case",
+      "name": "invalid_api_call",
+      "model": "RAND_FOREST",
       "payload": {
         "area": -1,
         "perimeter": 14.84,

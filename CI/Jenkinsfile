@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "mshanturov/classic_developer_ml_cicle"
+        DOCKERHUB_CREDS = credentials('dockerhub-creds')
+    }
+
+    options {
+        timestamps()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install dependencies') {
+            steps {
+                sh 'python3 -m pip install --upgrade pip'
+                sh 'pip3 install -r requirements.txt'
+            }
+        }
+
+        stage('Prepare and train') {
+            steps {
+                sh 'python3 src/preprocess.py'
+                sh 'python3 src/train.py --model ALL --use-config'
+                sh 'python3 src/predict.py -m RAND_FOREST -t smoke'
+            }
+        }
+
+        stage('Unit tests and coverage') {
+            steps {
+                sh 'coverage run src/unit_tests/test_preprocess.py'
+                sh 'coverage run -a src/unit_tests/test_training.py'
+                sh 'coverage run -a src/unit_tests/test_api.py'
+                sh 'coverage report -m'
+            }
+        }
+
+        stage('Build and push docker image') {
+            steps {
+                sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
+                sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} -t $IMAGE_NAME:latest .'
+                sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+                sh 'docker push $IMAGE_NAME:latest'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
+        }
+    }
+}

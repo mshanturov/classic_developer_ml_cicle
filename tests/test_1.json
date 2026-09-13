@@ -1,0 +1,18 @@
+{
+  "X": [
+    {
+      "area": 13.99,
+      "perimeter": 13.83,
+      "compactness": 0.9183,
+      "kernel_length": 5.119,
+      "kernel_width": 3.383,
+      "asymmetry_coefficient": 5.234,
+      "groove_length": 4.781
+    }
+  ],
+  "y": [
+    {
+      "class": 3
+    }
+  ]
+}

@@ -5,17 +5,17 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 DIST_PATH = Path("dist/lab1_distribution.zip")
 INCLUDE_PATHS = [
+    "CI",
+    "CD",
     "src",
     "scripts",
     "tests",
     "notebooks",
-    ".github/workflows",
     "config.ini",
     "requirements.txt",
     "Dockerfile",
     "docker-compose.yml",
-    "docker-compose.dev.yml",
-    "dvc.yaml",
+    "data.dvc",
     "dev_sec_ops.yml",
     "scenario.json",
     "README.md",
@@ -43,6 +43,8 @@ def main() -> None:
     with ZipFile(DIST_PATH, "w", compression=ZIP_DEFLATED) as archive:
         for relative in INCLUDE_PATHS:
             root = Path(relative)
+            if not root.exists():
+                continue
             for file_path in iter_files(root):
                 archive.write(file_path, arcname=file_path.as_posix())
 

@@ -1,0 +1,39 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build and run service') {
+            steps {
+                sh 'docker compose up -d --build web'
+            }
+        }
+
+        stage('Run functional tests') {
+            steps {
+                sh 'docker compose --profile cd run --rm functional-tests'
+            }
+        }
+
+        stage('Collect logs') {
+            steps {
+                sh 'docker compose logs > cd-functional-tests.log'
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker compose down -v || true'
+        }
+    }
+}
