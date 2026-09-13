@@ -1,0 +1,31 @@
+{
+  "base_url": "http://model-api:8000",
+  "cases": [
+    {
+      "name": "valid_prediction_case",
+      "payload": {
+        "area": 15.26,
+        "perimeter": 14.84,
+        "compactness": 0.871,
+        "kernel_length": 5.763,
+        "kernel_width": 3.312,
+        "asymmetry_coefficient": 2.221,
+        "groove_length": 5.22
+      },
+      "expected_status": 200
+    },
+    {
+      "name": "invalid_payload_case",
+      "payload": {
+        "area": -1,
+        "perimeter": 14.84,
+        "compactness": 0.871,
+        "kernel_length": 5.763,
+        "kernel_width": 3.312,
+        "asymmetry_coefficient": 2.221,
+        "groove_length": 5.22
+      },
+      "expected_status": 422
+    }
+  ]
+}
