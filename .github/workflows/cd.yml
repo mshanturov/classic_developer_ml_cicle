@@ -1,0 +1,31 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  functional-tests:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image and run container functional tests
+        run: |
+          docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests
+
+      - name: Save compose logs
+        if: always()
+        run: docker compose logs > docker-compose-functional-tests.log
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cd-functional-test-logs
+          path: docker-compose-functional-tests.log
