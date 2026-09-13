@@ -7,6 +7,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 INCLUDE_PATHS = [
     "CI",
     "CD",
+    "docker",
     "src",
     "scripts",
     "tests",
@@ -23,6 +24,7 @@ INCLUDE_PATHS = [
     "README.md",
     "REPORT_LAB1.md",
     "REPORT_LAB2.md",
+    "REPORT_LAB3.md",
 ]
 
 

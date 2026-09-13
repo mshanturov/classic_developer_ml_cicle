@@ -19,6 +19,11 @@ dist/
 !dist/
 !dist/lab1_distribution.zip
 !dist/lab2_distribution.zip
+!dist/lab3_distribution.zip
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Local vault helper files
+docker/vault/.vault_pass
+docker/vault/*.tmp

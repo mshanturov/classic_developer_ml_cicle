@@ -4,8 +4,9 @@ pipeline {
     environment {
         IMAGE_NAME = "mshanturov/classic_developer_ml_cicle"
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
-        REDIS_PASSWORD = credentials('redis-password')
-        REDIS_KEY_PREFIX = 'lab2-ci'
+        ANSIBLE_VAULT_PASSWORD = credentials('ansible-vault-password')
+        BOOTSTRAP_REDIS_PASSWORD = credentials('redis-password')
+        REDIS_KEY_PREFIX = 'lab3-ci'
     }
 
     options {
@@ -44,7 +45,7 @@ pipeline {
             }
         }
 
-        stage('Container functional tests with Redis') {
+        stage('Container functional tests with Vault + Redis') {
             steps {
                 sh 'docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests'
             }

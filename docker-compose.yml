@@ -1,14 +1,35 @@
 version: '3.8'
 
 services:
+  vault-init:
+    build:
+      context: .
+      dockerfile: docker/vault/Dockerfile
+      args:
+        BOOTSTRAP_VAULT_PASSWORD: ${ANSIBLE_VAULT_PASSWORD}
+        BOOTSTRAP_REDIS_PASSWORD: ${BOOTSTRAP_REDIS_PASSWORD}
+    container_name: classic-ml-vault-init
+    environment:
+      ANSIBLE_VAULT_PASSWORD: ${ANSIBLE_VAULT_PASSWORD}
+    volumes:
+      - vault-secrets:/vault/output
+    restart: "no"
+
   redis:
     image: redis:7.4-alpine
     container_name: classic-ml-redis
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    depends_on:
+      vault-init:
+        condition: service_completed_successfully
+    volumes:
+      - vault-secrets:/vault-secrets:ro
+    command: >
+      sh -c "REDIS_PASSWORD=$$(cat /vault-secrets/redis_password) &&
+      exec redis-server --appendonly yes --requirepass $$REDIS_PASSWORD"
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD}\" ping | grep PONG"]
+      test: ["CMD-SHELL", "REDIS_PASSWORD=$$(cat /vault-secrets/redis_password) && redis-cli -a $$REDIS_PASSWORD ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -19,12 +40,17 @@ services:
     image: mshanturov/classic_developer_ml_cicle:latest
     container_name: classic-ml-api
     environment:
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_HOST_FILE: /vault-secrets/redis_host
+      REDIS_PORT_FILE: /vault-secrets/redis_port
+      REDIS_DB_FILE: /vault-secrets/redis_db
+      REDIS_PASSWORD_FILE: /vault-secrets/redis_password
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
       PREDICTION_STORE_BACKEND: redis
     depends_on:
       redis:
         condition: service_healthy
+    volumes:
+      - vault-secrets:/vault-secrets:ro
     ports:
       - "8011:8000"
     healthcheck:
@@ -41,7 +67,10 @@ services:
       bash -c "python3 src/preprocess.py && python3 src/train.py --model ALL --use-config &&
       python3 -m uvicorn src.api_service:app --host 0.0.0.0 --port 8000 --reload"
     environment:
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_HOST_FILE: /vault-secrets/redis_host
+      REDIS_PORT_FILE: /vault-secrets/redis_port
+      REDIS_DB_FILE: /vault-secrets/redis_db
+      REDIS_PASSWORD_FILE: /vault-secrets/redis_password
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
       PREDICTION_STORE_BACKEND: redis
     depends_on:
@@ -49,6 +78,7 @@ services:
         condition: service_healthy
     volumes:
       - ./:/app
+      - vault-secrets:/vault-secrets:ro
     ports:
       - "8012:8000"
 
@@ -56,7 +86,10 @@ services:
     build: .
     profiles: ["cd"]
     environment:
-      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379/0
+      REDIS_HOST_FILE: /vault-secrets/redis_host
+      REDIS_PORT_FILE: /vault-secrets/redis_port
+      REDIS_DB_FILE: /vault-secrets/redis_db
+      REDIS_PASSWORD_FILE: /vault-secrets/redis_password
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
       PREDICTION_STORE_BACKEND: redis
     depends_on:
@@ -64,4 +97,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - vault-secrets:/vault-secrets:ro
     command: ["python3", "src/functional_api_test.py"]
+
+volumes:
+  vault-secrets:

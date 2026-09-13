@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ -z "${ANSIBLE_VAULT_PASSWORD:-}" ]; then
+  echo "ANSIBLE_VAULT_PASSWORD is required"
+  exit 1
+fi
+
+mkdir -p /vault/output
+
+printf "%s" "${ANSIBLE_VAULT_PASSWORD}" > /tmp/.vault_pass
+ansible-vault view /vault/store/redis_secrets.vault --vault-password-file /tmp/.vault_pass > /tmp/redis_secrets.yml
+
+python3 - <<'PY'
+from pathlib import Path
+import yaml
+
+secret_data = yaml.safe_load(Path('/tmp/redis_secrets.yml').read_text(encoding='utf-8'))
+redis_data = secret_data['redis']
+
+output = Path('/vault/output')
+output.mkdir(parents=True, exist_ok=True)
+(output / 'redis_host').write_text(str(redis_data['host']), encoding='utf-8')
+(output / 'redis_port').write_text(str(redis_data['port']), encoding='utf-8')
+(output / 'redis_db').write_text(str(redis_data['db']), encoding='utf-8')
+(output / 'redis_password').write_text(str(redis_data['password']), encoding='utf-8')
+PY
+
+rm -f /tmp/redis_secrets.yml /tmp/.vault_pass
+
+echo "Vault secrets exported successfully"
