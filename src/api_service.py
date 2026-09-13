@@ -88,7 +88,7 @@ class InferenceService:
         return PredictionResponse(request_id=request_id, model=model_name, predicted_class=predicted_value)
 
 
-app = FastAPI(title="Wheat Seeds API with Redis", version="2.0.0")
+app = FastAPI(title="Wheat Seeds API with Vault + Redis", version="3.0.0")
 
 
 def get_inference_service() -> InferenceService:

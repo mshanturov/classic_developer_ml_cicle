@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 
 import pandas as pd
 from redis import Redis
 from redis.exceptions import RedisError
+
+from prediction_store import resolve_redis_url
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,9 +20,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        raise RuntimeError("REDIS_URL is not set.")
+    redis_url = resolve_redis_url()
 
     dataframe = pd.read_csv(args.input, index_col=0).head(args.limit)
     client = Redis.from_url(redis_url, decode_responses=True)

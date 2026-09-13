@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path
 from typing import Protocol
 from uuid import uuid4
 
@@ -79,7 +80,7 @@ class RedisPredictionStore:
         try:
             self._client.ping()
         except RedisError as error:
-            raise StoreError("Failed to connect to Redis. Check REDIS_URL and credentials.") from error
+            raise StoreError("Failed to connect to Redis. Check resolved secrets and Redis availability.") from error
 
     def _request_key(self, request_key: str) -> str:
         return f"{self.key_prefix}:inference_request:{request_key}"
@@ -137,6 +138,48 @@ class RedisPredictionStore:
         return json.loads(raw_prediction)
 
 
+def _read_secret_file(path_value: str) -> str:
+    path = Path(path_value)
+    if not path.exists():
+        raise StoreError(f"Secret file does not exist: {path}")
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _get_secret_value(env_name: str, file_env_name: str, required: bool = True) -> str:
+    file_path = os.getenv(file_env_name)
+    if file_path:
+        value = _read_secret_file(file_path)
+        if value:
+            return value
+
+    value = os.getenv(env_name, "").strip()
+    if value:
+        return value
+
+    if required:
+        raise StoreError(
+            f"Secret is missing: provide {env_name} or {file_env_name}."
+        )
+    return ""
+
+
+def resolve_redis_url() -> str:
+    redis_url_file = os.getenv("REDIS_URL_FILE", "").strip()
+    if redis_url_file:
+        return _read_secret_file(redis_url_file)
+
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if redis_url:
+        return redis_url
+
+    host = _get_secret_value("REDIS_HOST", "REDIS_HOST_FILE")
+    port = _get_secret_value("REDIS_PORT", "REDIS_PORT_FILE")
+    db = _get_secret_value("REDIS_DB", "REDIS_DB_FILE", required=False) or "0"
+    password = _get_secret_value("REDIS_PASSWORD", "REDIS_PASSWORD_FILE")
+
+    return f"redis://default:{password}@{host}:{port}/{db}"
+
+
 def create_prediction_store() -> PredictionStore:
     backend = os.getenv("PREDICTION_STORE_BACKEND", "redis").strip().lower()
     key_prefix = os.getenv("REDIS_KEY_PREFIX", "lab2")
@@ -144,10 +187,4 @@ def create_prediction_store() -> PredictionStore:
     if backend == "inmemory":
         return InMemoryPredictionStore(key_prefix=key_prefix)
 
-    redis_url = os.getenv("REDIS_URL")
-    if not redis_url:
-        raise StoreError(
-            "REDIS_URL is not set. Provide it via environment (for example in docker-compose/.env)."
-        )
-
-    return RedisPredictionStore(redis_url=redis_url, key_prefix=key_prefix)
+    return RedisPredictionStore(redis_url=resolve_redis_url(), key_prefix=key_prefix)
