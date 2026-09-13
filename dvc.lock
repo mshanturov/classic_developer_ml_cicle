@@ -1,0 +1,92 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python3 scripts/prepare_data.py --input data/raw/seeds_dataset.txt 
+      --train-output data/processed/train.csv --test-output 
+      data/processed/test.csv --test-size 0.2 --random-state 42
+    deps:
+    - path: data/raw/seeds_dataset.txt
+      hash: md5
+      md5: 24f6f70fcf40fa115de5c71859dc7108
+      size: 9300
+    - path: scripts/prepare_data.py
+      hash: md5
+      md5: fd7344de88a296be6a03f57715a72035
+      size: 1290
+    - path: src/ml_pipeline/data.py
+      hash: md5
+      md5: 9615c008337dea00fac7c194f834849f
+      size: 1778
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: b914fb092bc3932e29782f4d6c37046f
+      size: 1957
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 2d0e8e7f88dd1e9c1c12d36f94ca469b
+      size: 7535
+  train:
+    cmd: python3 scripts/train.py --train-path data/processed/train.csv 
+      --test-path data/processed/test.csv --model-path artifacts/model.joblib 
+      --metrics-path artifacts/metrics.json --config config.ini
+    deps:
+    - path: config.ini
+      hash: md5
+      md5: 33bbadff2d209082b0a3af16432a27a2
+      size: 83
+    - path: data/processed/test.csv
+      hash: md5
+      md5: b914fb092bc3932e29782f4d6c37046f
+      size: 1957
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 2d0e8e7f88dd1e9c1c12d36f94ca469b
+      size: 7535
+    - path: scripts/train.py
+      hash: md5
+      md5: 29f0205f7466072773ae8cbdc3b5765a
+      size: 1440
+    - path: src/ml_pipeline/config.py
+      hash: md5
+      md5: 37510ad532f06a74c34e2e22bdceac88
+      size: 1167
+    - path: src/ml_pipeline/evaluate.py
+      hash: md5
+      md5: 4204dce95c7ad2ff1ce62567da55515b
+      size: 1371
+    - path: src/ml_pipeline/model.py
+      hash: md5
+      md5: 80412aae09ef2f2741b7994ef5fe17e2
+      size: 1720
+    outs:
+    - path: artifacts/metrics.json
+      hash: md5
+      md5: d985e000d3004077ab5ed87320fc12f8
+      size: 509
+    - path: artifacts/model.joblib
+      hash: md5
+      md5: 97b9ec711b089846a3ff2f3d64067ff1
+      size: 807690
+  evaluate:
+    cmd: python3 scripts/evaluate.py --test-path data/processed/test.csv 
+      --model-path artifacts/model.joblib --metrics-path 
+      artifacts/metrics_cd.json
+    deps:
+    - path: artifacts/model.joblib
+      hash: md5
+      md5: 97b9ec711b089846a3ff2f3d64067ff1
+      size: 807690
+    - path: data/processed/test.csv
+      hash: md5
+      md5: b914fb092bc3932e29782f4d6c37046f
+      size: 1957
+    - path: scripts/evaluate.py
+      hash: md5
+      md5: 1ec88b1449ef5a8319f50545bd79988c
+      size: 1073
+    outs:
+    - path: artifacts/metrics_cd.json
+      hash: md5
+      md5: d985e000d3004077ab5ed87320fc12f8
+      size: 509
