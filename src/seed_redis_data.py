@@ -7,7 +7,10 @@ import pandas as pd
 from redis import Redis
 from redis.exceptions import RedisError
 
-from prediction_store import resolve_redis_url
+try:
+    from prediction_store import resolve_redis_url
+except ModuleNotFoundError:
+    from src.prediction_store import resolve_redis_url
 
 
 def parse_args() -> argparse.Namespace:

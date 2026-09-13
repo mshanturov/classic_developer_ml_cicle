@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import configparser
+import os
 from pathlib import Path
 import pickle
 
@@ -10,8 +11,10 @@ from pydantic import BaseModel, Field
 from sklearn.preprocessing import StandardScaler
 
 try:
+    from kafka_bus import MessageBusError, PredictionEventBus, create_prediction_event_bus
     from prediction_store import PredictionStore, StoreError, create_prediction_store
 except ModuleNotFoundError:
+    from src.kafka_bus import MessageBusError, PredictionEventBus, create_prediction_event_bus
     from src.prediction_store import PredictionStore, StoreError, create_prediction_store
 
 
@@ -32,8 +35,9 @@ class PredictionResponse(BaseModel):
 
 
 class InferenceService:
-    def __init__(self, prediction_store: PredictionStore) -> None:
+    def __init__(self, prediction_store: PredictionStore, event_bus: PredictionEventBus) -> None:
         self.prediction_store = prediction_store
+        self.event_bus = event_bus
 
         self.config = configparser.ConfigParser()
         self.config.read("config.ini")
@@ -43,6 +47,7 @@ class InferenceService:
         self.scaler.fit(x_train)
 
         self._loaded_models: dict[str, object] = {}
+        self.message_bus_backend = os.getenv("MESSAGE_BUS_BACKEND", "kafka").strip().lower()
 
     def _resolve_model_path(self, model_name: str) -> Path:
         if model_name == "LOG_REG":
@@ -74,28 +79,59 @@ class InferenceService:
         self._loaded_models[model_name] = model
         return model
 
+    def _build_prediction_event(
+        self,
+        request_id: str,
+        model_name: str,
+        predicted_class: int,
+        payload: dict[str, float],
+    ) -> dict[str, object]:
+        return {
+            "event_type": "prediction.created",
+            "request_id": request_id,
+            "model": model_name,
+            "predicted_class": predicted_class,
+            "payload": payload,
+        }
+
     def predict_and_store(self, model_name: str, request: PredictRequest) -> PredictionResponse:
         model = self.load_model(model_name)
-        x_frame = pd.DataFrame([request.model_dump()])
+        payload = request.model_dump()
+
+        x_frame = pd.DataFrame([payload])
         x_scaled = self.scaler.transform(x_frame)
         predicted_value = int(model.predict(x_scaled)[0])
 
         request_id = self.prediction_store.save_prediction(
-            request_payload=request.model_dump(),
+            request_payload=payload,
             model_name=model_name,
             predicted_class=predicted_value,
         )
+
+        event = self._build_prediction_event(
+            request_id=request_id,
+            model_name=model_name,
+            predicted_class=predicted_value,
+            payload=payload,
+        )
+        self.event_bus.publish_prediction_event(event)
+
+        # For unit tests/local dry-runs without Kafka consumer.
+        if self.message_bus_backend == "inmemory":
+            self.prediction_store.save_consumed_event(request_id, event)
+
         return PredictionResponse(request_id=request_id, model=model_name, predicted_class=predicted_value)
 
 
-app = FastAPI(title="Wheat Seeds API with Vault + Redis", version="3.0.0")
+app = FastAPI(title="Wheat Seeds API with Vault + Redis + Kafka", version="4.0.0")
 
 
 def get_inference_service() -> InferenceService:
     service = getattr(app.state, "inference_service", None)
     if service is None:
         prediction_store = create_prediction_store()
-        service = InferenceService(prediction_store=prediction_store)
+        event_bus = create_prediction_event_bus()
+        service = InferenceService(prediction_store=prediction_store, event_bus=event_bus)
         app.state.inference_service = service
     return service
 
@@ -130,7 +166,7 @@ def predict(request: PredictRequest, model: str = "RAND_FOREST") -> PredictionRe
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
     except FileNotFoundError as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
-    except StoreError as error:
+    except (StoreError, MessageBusError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
 
 
@@ -150,7 +186,7 @@ def predict_from_redis(request_key: str, model: str = "RAND_FOREST") -> Predicti
         raise
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
-    except StoreError as error:
+    except (StoreError, MessageBusError) as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
 
 
@@ -168,3 +204,20 @@ def get_prediction(request_id: str) -> dict[str, object]:
             detail=f"Prediction with request_id '{request_id}' was not found.",
         )
     return prediction
+
+
+@app.get("/consumed-events/{request_id}")
+def get_consumed_event(request_id: str) -> dict[str, object]:
+    try:
+        service = get_inference_service()
+        consumed_event = service.prediction_store.get_consumed_event(request_id)
+    except StoreError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+
+    if consumed_event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Consumed event for request_id '{request_id}' was not found.",
+        )
+
+    return consumed_event

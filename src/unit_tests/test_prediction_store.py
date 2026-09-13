@@ -8,7 +8,7 @@ import unittest
 
 sys.path.insert(1, os.path.join(os.getcwd(), "src"))
 
-from prediction_store import InMemoryPredictionStore, resolve_redis_url
+from prediction_store import InMemoryPredictionStore, resolve_kafka_settings, resolve_redis_url
 
 
 class TestInMemoryPredictionStore(unittest.TestCase):
@@ -50,6 +50,17 @@ class TestInMemoryPredictionStore(unittest.TestCase):
         self.assertEqual(stored_prediction["model"], "RAND_FOREST")
         self.assertEqual(stored_prediction["predicted_class"], 2)
 
+    def test_save_and_get_consumed_event(self) -> None:
+        event = {
+            "event_type": "prediction.created",
+            "request_id": "abc",
+            "model": "RAND_FOREST",
+            "predicted_class": 1,
+        }
+        self.store.save_consumed_event("abc", event)
+        restored_event = self.store.get_consumed_event("abc")
+        self.assertEqual(restored_event, event)
+
 
 class TestRedisSecretResolution(unittest.TestCase):
     def setUp(self) -> None:
@@ -65,6 +76,12 @@ class TestRedisSecretResolution(unittest.TestCase):
             "REDIS_PORT_FILE",
             "REDIS_DB_FILE",
             "REDIS_PASSWORD_FILE",
+            "KAFKA_BOOTSTRAP_SERVERS",
+            "KAFKA_BOOTSTRAP_SERVERS_FILE",
+            "KAFKA_TOPIC",
+            "KAFKA_TOPIC_FILE",
+            "KAFKA_GROUP_ID",
+            "KAFKA_GROUP_ID_FILE",
         ]:
             os.environ.pop(key, None)
 
@@ -100,6 +117,25 @@ class TestRedisSecretResolution(unittest.TestCase):
 
             resolved_url = resolve_redis_url()
             self.assertEqual(resolved_url, "redis://default:another-pass@redis:6379/1")
+
+    def test_resolve_kafka_settings_from_secret_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bootstrap_file = Path(tmp) / "kafka_bootstrap_servers"
+            topic_file = Path(tmp) / "kafka_topic"
+            group_file = Path(tmp) / "kafka_group_id"
+
+            bootstrap_file.write_text("kafka:9092", encoding="utf-8")
+            topic_file.write_text("prediction-events", encoding="utf-8")
+            group_file.write_text("consumer-group-1", encoding="utf-8")
+
+            os.environ["KAFKA_BOOTSTRAP_SERVERS_FILE"] = str(bootstrap_file)
+            os.environ["KAFKA_TOPIC_FILE"] = str(topic_file)
+            os.environ["KAFKA_GROUP_ID_FILE"] = str(group_file)
+
+            settings = resolve_kafka_settings()
+            self.assertEqual(settings.bootstrap_servers, "kafka:9092")
+            self.assertEqual(settings.topic, "prediction-events")
+            self.assertEqual(settings.group_id, "consumer-group-1")
 
 
 if __name__ == "__main__":

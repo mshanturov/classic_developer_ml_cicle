@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -12,6 +13,21 @@ def assert_status(response: requests.Response, expected_status: int, context: st
         raise RuntimeError(
             f"{context}: expected status {expected_status}, got {response.status_code}, body={response.text}"
         )
+
+
+def wait_for_consumed_event(base_url: str, request_id: str, timeout_seconds: int = 40) -> None:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        response = requests.get(f"{base_url}/consumed-events/{request_id}", timeout=10)
+        if response.status_code == 200:
+            return
+        if response.status_code != 404:
+            raise RuntimeError(
+                f"consumed event check failed: status={response.status_code}, body={response.text}"
+            )
+        time.sleep(1)
+
+    raise RuntimeError(f"Consumed event for request_id={request_id} was not produced within timeout")
 
 
 def main() -> None:
@@ -33,6 +49,7 @@ def main() -> None:
     request_id = direct_response.json()["request_id"]
     stored_response = requests.get(f"{base_url}/predictions/{request_id}", timeout=10)
     assert_status(stored_response, 200, "stored prediction fetch")
+    wait_for_consumed_event(base_url, request_id)
 
     redis_case = scenario["redis_case"]
     save_request_response = requests.post(
@@ -52,6 +69,7 @@ def main() -> None:
     redis_prediction_id = redis_predict_response.json()["request_id"]
     redis_stored_response = requests.get(f"{base_url}/predictions/{redis_prediction_id}", timeout=10)
     assert_status(redis_stored_response, 200, "stored redis prediction fetch")
+    wait_for_consumed_event(base_url, redis_prediction_id)
 
     invalid_case = scenario["invalid_case"]
     invalid_response = requests.post(

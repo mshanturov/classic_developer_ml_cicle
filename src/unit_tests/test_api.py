@@ -7,6 +7,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 os.environ["PREDICTION_STORE_BACKEND"] = "inmemory"
+os.environ["MESSAGE_BUS_BACKEND"] = "inmemory"
 
 sys.path.insert(1, os.path.join(os.getcwd(), "src"))
 
@@ -43,6 +44,10 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(stored_response.status_code, 200)
         self.assertEqual(stored_response.json()["request_id"], body["request_id"])
 
+        consumed_response = self.client.get(f"/consumed-events/{body['request_id']}")
+        self.assertEqual(consumed_response.status_code, 200)
+        self.assertEqual(consumed_response.json()["event_type"], "prediction.created")
+
     def test_predict_from_redis_request(self) -> None:
         request_key = "unit-test-request"
         payload = {
@@ -63,7 +68,11 @@ class TestAPI(unittest.TestCase):
             params={"request_key": request_key, "model": "RAND_FOREST"},
         )
         self.assertEqual(predict_response.status_code, 200)
-        self.assertIn("request_id", predict_response.json())
+        body = predict_response.json()
+        self.assertIn("request_id", body)
+
+        consumed_response = self.client.get(f"/consumed-events/{body['request_id']}")
+        self.assertEqual(consumed_response.status_code, 200)
 
     def test_predict_validation(self) -> None:
         invalid_payload = {

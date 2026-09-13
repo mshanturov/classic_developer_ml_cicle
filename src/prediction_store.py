@@ -34,14 +34,28 @@ class PredictionStore(Protocol):
     def get_prediction(self, request_id: str) -> dict[str, object] | None:
         ...
 
+    def save_consumed_event(self, request_id: str, event_payload: dict[str, object]) -> None:
+        ...
+
+    def get_consumed_event(self, request_id: str) -> dict[str, object] | None:
+        ...
+
+
+@dataclass(frozen=True)
+class KafkaSettings:
+    bootstrap_servers: str
+    topic: str
+    group_id: str
+
 
 @dataclass
 class InMemoryPredictionStore:
-    key_prefix: str = "lab2"
+    key_prefix: str = "lab4"
 
     def __post_init__(self) -> None:
         self._inference_requests: dict[str, dict[str, float]] = {}
         self._predictions: dict[str, dict[str, object]] = {}
+        self._consumed_events: dict[str, dict[str, object]] = {}
 
     def save_inference_request(self, request_key: str, payload: dict[str, float]) -> None:
         self._inference_requests[request_key] = payload
@@ -69,11 +83,17 @@ class InMemoryPredictionStore:
     def get_prediction(self, request_id: str) -> dict[str, object] | None:
         return self._predictions.get(request_id)
 
+    def save_consumed_event(self, request_id: str, event_payload: dict[str, object]) -> None:
+        self._consumed_events[request_id] = event_payload
+
+    def get_consumed_event(self, request_id: str) -> dict[str, object] | None:
+        return self._consumed_events.get(request_id)
+
 
 @dataclass
 class RedisPredictionStore:
     redis_url: str
-    key_prefix: str = "lab2"
+    key_prefix: str = "lab4"
 
     def __post_init__(self) -> None:
         self._client = Redis.from_url(self.redis_url, decode_responses=True)
@@ -87,6 +107,9 @@ class RedisPredictionStore:
 
     def _prediction_key(self, request_id: str) -> str:
         return f"{self.key_prefix}:prediction:{request_id}"
+
+    def _consumed_event_key(self, request_id: str) -> str:
+        return f"{self.key_prefix}:consumed_event:{request_id}"
 
     def save_inference_request(self, request_key: str, payload: dict[str, float]) -> None:
         try:
@@ -137,6 +160,22 @@ class RedisPredictionStore:
             return None
         return json.loads(raw_prediction)
 
+    def save_consumed_event(self, request_id: str, event_payload: dict[str, object]) -> None:
+        try:
+            self._client.set(self._consumed_event_key(request_id), json.dumps(event_payload))
+        except RedisError as error:
+            raise StoreError("Failed to write consumed event to Redis.") from error
+
+    def get_consumed_event(self, request_id: str) -> dict[str, object] | None:
+        try:
+            raw_event = self._client.get(self._consumed_event_key(request_id))
+        except RedisError as error:
+            raise StoreError("Failed to read consumed event from Redis.") from error
+
+        if raw_event is None:
+            return None
+        return json.loads(raw_event)
+
 
 def _read_secret_file(path_value: str) -> str:
     path = Path(path_value)
@@ -180,9 +219,28 @@ def resolve_redis_url() -> str:
     return f"redis://default:{password}@{host}:{port}/{db}"
 
 
+def resolve_kafka_settings() -> KafkaSettings:
+    bootstrap_servers = _get_secret_value(
+        "KAFKA_BOOTSTRAP_SERVERS",
+        "KAFKA_BOOTSTRAP_SERVERS_FILE",
+    )
+    topic = _get_secret_value("KAFKA_TOPIC", "KAFKA_TOPIC_FILE")
+    group_id = _get_secret_value(
+        "KAFKA_GROUP_ID",
+        "KAFKA_GROUP_ID_FILE",
+        required=False,
+    ) or "ml-prediction-consumer"
+
+    return KafkaSettings(
+        bootstrap_servers=bootstrap_servers,
+        topic=topic,
+        group_id=group_id,
+    )
+
+
 def create_prediction_store() -> PredictionStore:
     backend = os.getenv("PREDICTION_STORE_BACKEND", "redis").strip().lower()
-    key_prefix = os.getenv("REDIS_KEY_PREFIX", "lab2")
+    key_prefix = os.getenv("REDIS_KEY_PREFIX", "lab4")
 
     if backend == "inmemory":
         return InMemoryPredictionStore(key_prefix=key_prefix)
