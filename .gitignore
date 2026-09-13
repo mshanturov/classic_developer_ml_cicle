@@ -20,6 +20,7 @@ dist/
 !dist/lab1_distribution.zip
 !dist/lab2_distribution.zip
 !dist/lab3_distribution.zip
+!dist/lab4_distribution.zip
 
 # Jupyter
 .ipynb_checkpoints/

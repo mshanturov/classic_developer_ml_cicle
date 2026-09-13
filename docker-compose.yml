@@ -8,12 +8,39 @@ services:
       args:
         BOOTSTRAP_VAULT_PASSWORD: ${ANSIBLE_VAULT_PASSWORD}
         BOOTSTRAP_REDIS_PASSWORD: ${BOOTSTRAP_REDIS_PASSWORD}
+        BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS: ${BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS}
+        BOOTSTRAP_KAFKA_TOPIC: ${BOOTSTRAP_KAFKA_TOPIC}
+        BOOTSTRAP_KAFKA_GROUP_ID: ${BOOTSTRAP_KAFKA_GROUP_ID}
     container_name: classic-ml-vault-init
     environment:
       ANSIBLE_VAULT_PASSWORD: ${ANSIBLE_VAULT_PASSWORD}
     volumes:
       - vault-secrets:/vault/output
     restart: "no"
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: classic-ml-kafka
+    depends_on:
+      vault-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   redis:
     image: redis:7.4-alpine
@@ -44,10 +71,16 @@ services:
       REDIS_PORT_FILE: /vault-secrets/redis_port
       REDIS_DB_FILE: /vault-secrets/redis_db
       REDIS_PASSWORD_FILE: /vault-secrets/redis_password
+      KAFKA_BOOTSTRAP_SERVERS_FILE: /vault-secrets/kafka_bootstrap_servers
+      KAFKA_TOPIC_FILE: /vault-secrets/kafka_topic
+      KAFKA_GROUP_ID_FILE: /vault-secrets/kafka_group_id
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
       PREDICTION_STORE_BACKEND: redis
+      MESSAGE_BUS_BACKEND: kafka
     depends_on:
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     volumes:
       - vault-secrets:/vault-secrets:ro
@@ -60,6 +93,28 @@ services:
       retries: 5
       start_period: 20s
 
+  kafka-consumer:
+    build: .
+    container_name: classic-ml-kafka-consumer
+    command: ["python3", "src/kafka_consumer_service.py"]
+    environment:
+      REDIS_HOST_FILE: /vault-secrets/redis_host
+      REDIS_PORT_FILE: /vault-secrets/redis_port
+      REDIS_DB_FILE: /vault-secrets/redis_db
+      REDIS_PASSWORD_FILE: /vault-secrets/redis_password
+      KAFKA_BOOTSTRAP_SERVERS_FILE: /vault-secrets/kafka_bootstrap_servers
+      KAFKA_TOPIC_FILE: /vault-secrets/kafka_topic
+      KAFKA_GROUP_ID_FILE: /vault-secrets/kafka_group_id
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
+      PREDICTION_STORE_BACKEND: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - vault-secrets:/vault-secrets:ro
+
   web-dev:
     build: .
     profiles: ["dev"]
@@ -71,10 +126,16 @@ services:
       REDIS_PORT_FILE: /vault-secrets/redis_port
       REDIS_DB_FILE: /vault-secrets/redis_db
       REDIS_PASSWORD_FILE: /vault-secrets/redis_password
+      KAFKA_BOOTSTRAP_SERVERS_FILE: /vault-secrets/kafka_bootstrap_servers
+      KAFKA_TOPIC_FILE: /vault-secrets/kafka_topic
+      KAFKA_GROUP_ID_FILE: /vault-secrets/kafka_group_id
       REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
       PREDICTION_STORE_BACKEND: redis
+      MESSAGE_BUS_BACKEND: kafka
     depends_on:
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     volumes:
       - ./:/app
@@ -86,16 +147,15 @@ services:
     build: .
     profiles: ["cd"]
     environment:
-      REDIS_HOST_FILE: /vault-secrets/redis_host
-      REDIS_PORT_FILE: /vault-secrets/redis_port
-      REDIS_DB_FILE: /vault-secrets/redis_db
-      REDIS_PASSWORD_FILE: /vault-secrets/redis_password
-      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
-      PREDICTION_STORE_BACKEND: redis
+      SCENARIO_BASE_URL: http://web:8000
     depends_on:
       web:
         condition: service_healthy
+      kafka-consumer:
+        condition: service_started
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     volumes:
       - vault-secrets:/vault-secrets:ro

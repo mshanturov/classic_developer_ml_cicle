@@ -6,7 +6,10 @@ pipeline {
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
         ANSIBLE_VAULT_PASSWORD = credentials('ansible-vault-password')
         BOOTSTRAP_REDIS_PASSWORD = credentials('redis-password')
-        REDIS_KEY_PREFIX = 'lab3-ci'
+        BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS = 'kafka:9092'
+        BOOTSTRAP_KAFKA_TOPIC = 'model-predictions'
+        BOOTSTRAP_KAFKA_GROUP_ID = 'model-prediction-consumer'
+        REDIS_KEY_PREFIX = 'lab4-ci'
     }
 
     options {
@@ -40,12 +43,13 @@ pipeline {
                 sh 'python3 -m coverage run src/unit_tests/test_preprocess.py'
                 sh 'python3 -m coverage run -a src/unit_tests/test_training.py'
                 sh 'python3 -m coverage run -a src/unit_tests/test_prediction_store.py'
+                sh 'python3 -m coverage run -a src/unit_tests/test_kafka_bus.py'
                 sh 'python3 -m coverage run -a src/unit_tests/test_api.py'
                 sh 'python3 -m coverage report -m'
             }
         }
 
-        stage('Container functional tests with Vault + Redis') {
+        stage('Container functional tests with Vault + Redis + Kafka') {
             steps {
                 sh 'docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests'
             }

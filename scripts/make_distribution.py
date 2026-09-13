@@ -25,12 +25,13 @@ INCLUDE_PATHS = [
     "REPORT_LAB1.md",
     "REPORT_LAB2.md",
     "REPORT_LAB3.md",
+    "REPORT_LAB4.md",
 ]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build distribution zip for lab artifacts")
-    parser.add_argument("--lab", default="2", help="Lab number to include in resulting zip file name")
+    parser.add_argument("--lab", default="4", help="Lab number to include in resulting zip file name")
     return parser.parse_args()
 
 
