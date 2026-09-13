@@ -1,15 +1,13 @@
 image_signature:
   algorithm: sha256
-  value: "to-be-generated-by-ci"
-
+  value: to-be-generated-by-ci
 git:
   latest_5_commits:
-    - "will-be-updated-after-commits"
-    - "will-be-updated-after-commits"
-    - "will-be-updated-after-commits"
-    - "will-be-updated-after-commits"
-    - "will-be-updated-after-commits"
-
+  - a26f1be29ab10ef74be66945121f80368d118a0f
+  - d0e5fe4defa57e42b165a7c715eece9c8b9cbd4d
+  - 485f268a47ba169584092c31af0172756daffd67
+  - aa226c1e3478d049aca9dad99d929a0e4a3d9b28
+  - 197831ce53eaf621d1255d4a2424cecb01645cf0
 test_coverage:
   enabled: true
   minimum_percent: 75
