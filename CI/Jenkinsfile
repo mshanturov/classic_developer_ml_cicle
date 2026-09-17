@@ -55,10 +55,13 @@ pipeline {
         }
 
         stage('Container functional tests with Vault + Redis + Kafka') {
-            steps {
-                sh 'docker compose --profile cd up --build --abort-on-container-exit --exit-code-from functional-tests'
-            }
-        }
+    steps {
+        sh '''
+            docker compose --profile cd up -d --build vault-init kafka redis web kafka-consumer
+            docker compose --profile cd run --rm functional-tests
+        '''
+    }
+}
 
         stage('Build and push docker image') {
             steps {
