@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   vault-init:
     build:
@@ -19,7 +17,7 @@ services:
     restart: "no"
 
   kafka:
-    image: bitnami/kafka:3.7
+    image: bitnamilegacy/kafka:3.7
     container_name: classic-ml-kafka
     depends_on:
       vault-init:
@@ -64,7 +62,7 @@ services:
 
   web:
     build: .
-    image: mshanturov/classic_developer_ml_cicle:latest
+    image: ${APP_IMAGE:-mshanturov/classic_developer_ml_cicle:latest}
     container_name: classic-ml-api
     environment:
       REDIS_HOST_FILE: /vault-secrets/redis_host
@@ -95,6 +93,7 @@ services:
 
   kafka-consumer:
     build: .
+    image: ${APP_IMAGE:-mshanturov/classic_developer_ml_cicle:latest}
     container_name: classic-ml-kafka-consumer
     command: ["python3", "src/kafka_consumer_service.py"]
     environment:
@@ -145,6 +144,7 @@ services:
 
   functional-tests:
     build: .
+    image: ${APP_IMAGE:-mshanturov/classic_developer_ml_cicle:latest}
     profiles: ["cd"]
     environment:
       SCENARIO_BASE_URL: http://web:8000
