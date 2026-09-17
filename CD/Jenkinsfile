@@ -2,16 +2,23 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker Hub image tag produced by CI')
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: 'latest',
+            description: 'Docker image tag published by CI'
+        )
     }
 
     environment {
-        APP_IMAGE = "mshanturov/classic_developer_ml_cicle:${params.IMAGE_TAG}"
+        IMAGE_NAME = "mshanturov/classic_developer_ml_cicle"
+
         ANSIBLE_VAULT_PASSWORD = credentials('ansible-vault-password')
         BOOTSTRAP_REDIS_PASSWORD = credentials('redis-password')
+
         BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS = 'kafka:9092'
         BOOTSTRAP_KAFKA_TOPIC = 'model-predictions'
         BOOTSTRAP_KAFKA_GROUP_ID = 'model-prediction-consumer'
+
         REDIS_KEY_PREFIX = 'lab4-cd'
     }
 
@@ -26,23 +33,42 @@ pipeline {
             }
         }
 
-        stage('Pull and run CI image') {
+        stage('Pull published image') {
             steps {
-                sh 'docker pull $APP_IMAGE'
-                sh 'docker compose build vault-init'
-                sh 'docker compose up -d --no-build vault-init kafka redis web kafka-consumer'
+                sh '''
+                    docker pull $IMAGE_NAME:$IMAGE_TAG
+                    docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+                '''
+            }
+        }
+
+        stage('Start services') {
+            steps {
+                sh '''
+                    docker compose up -d vault-init kafka redis
+
+                    docker compose up -d --no-build web kafka-consumer
+                '''
             }
         }
 
         stage('Seed Redis with inference requests') {
             steps {
-                sh 'docker compose exec -T web python3 src/seed_redis_data.py --input data/Test_Seeds_X.csv --limit 3 --prefix $REDIS_KEY_PREFIX'
+                sh '''
+                    docker compose exec -T web \
+                        python3 src/seed_redis_data.py \
+                        --input data/Test_Seeds_X.csv \
+                        --limit 3 \
+                        --prefix $REDIS_KEY_PREFIX
+                '''
             }
         }
 
         stage('Run functional tests') {
             steps {
-                sh 'docker compose --profile cd run --rm --no-build functional-tests'
+                sh '''
+                    docker compose --profile cd run --rm --no-deps functional-tests
+                '''
             }
         }
 
