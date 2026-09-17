@@ -64,13 +64,12 @@ pipeline {
 }
 
         stage('Build and push docker image') {
-            steps {
-                sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
-                sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} -t $IMAGE_NAME:latest .'
-                sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
-                sh 'docker push $IMAGE_NAME:latest'
-            }
-        }
+    steps {
+        sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
+        sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
+        sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+    }
+}
 
         stage('Deploy published image') {
             steps {
