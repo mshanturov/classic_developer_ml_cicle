@@ -16,6 +16,10 @@ pipeline {
         timestamps()
     }
 
+    triggers {
+        githubPush()
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -25,27 +29,28 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                sh 'python3 -m pip install --upgrade pip'
-                sh 'pip3 install -r requirements.txt'
+                sh 'python3 -m venv .venv'
+                sh '.venv/bin/python -m pip install --upgrade pip'
+                sh '.venv/bin/pip install -r requirements.txt'
             }
         }
 
         stage('Prepare and train') {
             steps {
-                sh 'python3 src/preprocess.py'
-                sh 'python3 src/train.py --model ALL --use-config'
-                sh 'python3 src/predict.py -m RAND_FOREST -t smoke'
+                sh '.venv/bin/python src/preprocess.py'
+                sh '.venv/bin/python src/train.py --model ALL --use-config'
+                sh '.venv/bin/python src/predict.py -m RAND_FOREST -t smoke'
             }
         }
 
         stage('Unit tests and coverage') {
             steps {
-                sh 'python3 -m coverage run src/unit_tests/test_preprocess.py'
-                sh 'python3 -m coverage run -a src/unit_tests/test_training.py'
-                sh 'python3 -m coverage run -a src/unit_tests/test_prediction_store.py'
-                sh 'python3 -m coverage run -a src/unit_tests/test_kafka_bus.py'
-                sh 'python3 -m coverage run -a src/unit_tests/test_api.py'
-                sh 'python3 -m coverage report -m'
+                sh '.venv/bin/python -m coverage run src/unit_tests/test_preprocess.py'
+                sh '.venv/bin/python -m coverage run -a src/unit_tests/test_training.py'
+                sh '.venv/bin/python -m coverage run -a src/unit_tests/test_prediction_store.py'
+                sh '.venv/bin/python -m coverage run -a src/unit_tests/test_kafka_bus.py'
+                sh '.venv/bin/python -m coverage run -a src/unit_tests/test_api.py'
+                sh '.venv/bin/python -m coverage report -m'
             }
         }
 
@@ -63,10 +68,25 @@ pipeline {
                 sh 'docker push $IMAGE_NAME:latest'
             }
         }
+
+        stage('Deploy published image') {
+            steps {
+                build job: 'classic-ml-cd',
+                    wait: true,
+                    parameters: [
+                        string(
+                            name: 'IMAGE_TAG',
+                            value: "${env.BUILD_NUMBER}"
+                        )
+                    ]
+            }
+        }
     }
 
     post {
         always {
+            sh 'docker compose logs > ci-compose.log || true'
+            archiveArtifacts artifacts: 'ci-compose.log', allowEmptyArchive: true
             sh 'docker compose down -v || true'
             sh 'docker logout || true'
         }
