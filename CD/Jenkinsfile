@@ -1,7 +1,12 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker Hub image tag produced by CI')
+    }
+
     environment {
+        APP_IMAGE = "mshanturov/classic_developer_ml_cicle:${params.IMAGE_TAG}"
         ANSIBLE_VAULT_PASSWORD = credentials('ansible-vault-password')
         BOOTSTRAP_REDIS_PASSWORD = credentials('redis-password')
         BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS = 'kafka:9092'
@@ -21,9 +26,11 @@ pipeline {
             }
         }
 
-        stage('Build and run service') {
+        stage('Pull and run CI image') {
             steps {
-                sh 'docker compose up -d --build vault-init kafka redis web kafka-consumer'
+                sh 'docker pull $APP_IMAGE'
+                sh 'docker compose build vault-init'
+                sh 'docker compose up -d --no-build vault-init kafka redis web kafka-consumer'
             }
         }
 
@@ -35,7 +42,7 @@ pipeline {
 
         stage('Run functional tests') {
             steps {
-                sh 'docker compose --profile cd run --rm functional-tests'
+                sh 'docker compose --profile cd run --rm --no-build functional-tests'
             }
         }
 
@@ -48,6 +55,7 @@ pipeline {
 
     post {
         always {
+            archiveArtifacts artifacts: 'cd-functional-tests.log', allowEmptyArchive: true
             sh 'docker compose down -v || true'
         }
     }

@@ -5,7 +5,7 @@ import json
 import time
 
 from kafka import KafkaConsumer
-from kafka.errors import NoBrokersAvailable
+from kafka.errors import KafkaError
 
 try:
     from prediction_store import StoreError, create_prediction_store, resolve_kafka_settings
@@ -34,7 +34,7 @@ def build_consumer(retries: int, delay_seconds: int) -> KafkaConsumer:
                 enable_auto_commit=True,
                 value_deserializer=lambda payload: json.loads(payload.decode("utf-8")),
             )
-        except NoBrokersAvailable:
+        except KafkaError:
             if attempt == retries:
                 raise
             time.sleep(delay_seconds)
@@ -48,7 +48,7 @@ def main() -> None:
 
     try:
         consumer = build_consumer(args.startup_retries, args.startup_delay_seconds)
-    except NoBrokersAvailable as error:
+    except KafkaError as error:
         raise RuntimeError("Kafka broker is unavailable for consumer startup") from error
 
     processed_messages = 0
