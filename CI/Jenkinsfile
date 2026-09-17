@@ -72,17 +72,17 @@ pipeline {
 }
 
         stage('Deploy published image') {
-            steps {
-                build job: 'classic-ml-cd',
-                    wait: true,
-                    parameters: [
-                        string(
-                            name: 'IMAGE_TAG',
-                            value: "${env.BUILD_NUMBER}"
-                        )
-                    ]
-            }
-        }
+    steps {
+        build job: 'classic-ml-cd',
+            wait: true,
+            parameters: [
+                string(
+                    name: 'IMAGE_TAG',
+                    value: "${env.BUILD_NUMBER}"
+                )
+            ]
+    }
+}
     }
 
     post {
