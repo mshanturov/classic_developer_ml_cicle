@@ -4,8 +4,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+RUN printf 'Acquire::Retries "10";\nAcquire::http::Timeout "60";\nAcquire::https::Timeout "60";\n' \
+        > /etc/apt/apt.conf.d/80-retries \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends --fix-missing curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
