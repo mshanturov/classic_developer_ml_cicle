@@ -69,6 +69,14 @@ pipeline {
         sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
         sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
     }
+}   
+
+        stage('Cleanup CI environment') {
+    steps {
+        sh '''
+            docker compose down -v --remove-orphans || true
+        '''
+    }
 }
 
         stage('Deploy published image') {
