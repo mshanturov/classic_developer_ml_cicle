@@ -3,12 +3,15 @@ pipeline {
 
     environment {
         IMAGE_NAME = "mshanturov/classic_developer_ml_cicle"
+
         DOCKERHUB_CREDS = credentials('dockerhub-creds')
         ANSIBLE_VAULT_PASSWORD = credentials('ansible-vault-password')
         BOOTSTRAP_REDIS_PASSWORD = credentials('redis-password')
+
         BOOTSTRAP_KAFKA_BOOTSTRAP_SERVERS = 'kafka:9092'
         BOOTSTRAP_KAFKA_TOPIC = 'model-predictions'
         BOOTSTRAP_KAFKA_GROUP_ID = 'model-prediction-consumer'
+
         REDIS_KEY_PREFIX = 'lab4-ci'
     }
 
@@ -55,53 +58,66 @@ pipeline {
         }
 
         stage('Container functional tests with Vault + Redis + Kafka') {
-    steps {
-        sh '''
-            docker compose --profile cd up -d --build vault-init kafka redis web kafka-consumer
-            docker compose --profile cd run --rm functional-tests
-        '''
-    }
-}
+            steps {
+                sh '''
+                    docker compose --profile cd up -d --build \
+                        vault-init kafka redis web kafka-consumer
+
+                    docker compose --profile cd run --rm functional-tests
+                '''
+            }
+        }
 
         stage('Build and push docker image') {
-    steps {
-        sh 'echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin'
+            steps {
+                sh '''
+                    echo "$DOCKERHUB_CREDS_PSW" | \
+                        docker login \
+                        -u "$DOCKERHUB_CREDS_USR" \
+                        --password-stdin
+                '''
 
-        sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
+                sh 'docker build -t $IMAGE_NAME:${BUILD_NUMBER} .'
 
-        retry(3) {
-            sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+                retry(3) {
+                    sh 'docker push $IMAGE_NAME:${BUILD_NUMBER}'
+                }
+            }
         }
-    }
-}
-}   
 
         stage('Cleanup CI environment') {
-    steps {
-        sh '''
-            docker compose down -v --remove-orphans || true
-        '''
-    }
-}
+            steps {
+                sh '''
+                    docker compose down -v --remove-orphans || true
+                '''
+            }
+        }
 
         stage('Deploy published image') {
-    steps {
-        build job: 'classic-ml-cd',
-            wait: true,
-            parameters: [
-                string(
-                    name: 'IMAGE_TAG',
-                    value: "${env.BUILD_NUMBER}"
-                )
-            ]
-    }
-}
+            steps {
+                echo "Triggering CD with IMAGE_TAG=${env.BUILD_NUMBER}"
+
+                build job: 'classic-ml-cd',
+                    wait: true,
+                    parameters: [
+                        string(
+                            name: 'IMAGE_TAG',
+                            value: "${env.BUILD_NUMBER}"
+                        )
+                    ]
+            }
+        }
     }
 
     post {
         always {
             sh 'docker compose logs > ci-compose.log || true'
-            archiveArtifacts artifacts: 'ci-compose.log', allowEmptyArchive: true
+
+            archiveArtifacts(
+                artifacts: 'ci-compose.log',
+                allowEmptyArchive: true
+            )
+
             sh 'docker compose down -v || true'
             sh 'docker logout || true'
         }
