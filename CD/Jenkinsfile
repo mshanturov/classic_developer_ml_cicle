@@ -68,12 +68,12 @@ pipeline {
         }
 
         stage('Start application') {
-            steps {
-                sh '''
-                    docker compose up -d --no-build web kafka-consumer
-                '''
-            }
-        }
+    steps {
+        sh '''
+            docker compose up -d --no-build --wait web kafka-consumer
+        '''
+    }
+}
 
         stage('Seed Redis with inference requests') {
             steps {
